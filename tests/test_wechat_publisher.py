@@ -45,39 +45,29 @@ author: '测试作者'
     image_path = fixtures_dir / "image.png"
     image_path.touch()
 
-    # Mock the external API calls
-    with patch.object(publisher, '_get_access_token', return_value='mock_token') as mock_token:
-        with patch.object(publisher, 'upload_image', return_value='http://mock.url/image.png') as mock_upload:
-            with patch.object(publisher.session, 'post') as mock_post:
-                # Mock the response from WeChat API for draft creation
-                mock_response = MagicMock()
-                mock_response.json.return_value = {'errcode': 0, 'media_id': 'mock_media_id'}
-                mock_post.return_value = mock_response
-
+    # Mock the external API calls at a higher level
+    with patch.object(publisher, 'upload_image', return_value='http://mock.url/image.png') as mock_upload_image:
+        with patch.object(publisher, '_upload_thumb_image', return_value='mock_thumb_media_id') as mock_upload_thumb:
+            with patch.object(publisher, '_create_draft', return_value=True) as mock_create_draft:
                 # Call the publish method
                 success = publisher.publish(str(article_path))
 
                 # Assertions
                 assert success is True
+
+                # Verify that the correct methods were called with the right arguments
+                mock_upload_image.assert_called_once_with(str(image_path))
+                mock_upload_thumb.assert_called_once_with(str(image_path))
+                mock_create_draft.assert_called_once()
+
+                # Inspect the arguments passed to _create_draft
+                args, kwargs = mock_create_draft.call_args
+                title, content, thumb_media_id, author, digest = args
                 
-                # Verify that access token was fetched
-                mock_token.assert_called_once()
-                
-                # Verify that image was uploaded
-                mock_upload.assert_called_once_with(str(image_path))
-                
-                # Verify that the draft was created with the correct payload
-                mock_post.assert_called_once()
-                args, kwargs = mock_post.call_args
-                payload = kwargs.get('json', {})
-                
-                assert 'articles' in payload
-                assert len(payload['articles']) == 1
-                article_payload = payload['articles'][0]
-                
-                assert article_payload['title'] == "'测试文章'"
-                assert article_payload['author'] == "'测试作者'"
-                assert 'http://mock.url/image.png' in article_payload['content']
+                assert title == "'测试文章'"
+                assert author == "'测试作者'"
+                assert thumb_media_id == 'mock_thumb_media_id'
+                assert 'http://mock.url/image.png' in content
 
 def test_get_access_token_failure(publisher):
     """Test failure to get access token."""
