@@ -83,8 +83,8 @@ class Config:
                 return default_value
             
             # 如果代码执行到这里，说明环境变量既不存在，也没有提供默认值。
-            print(f"错误：必需的环境变量 '{var_name}' 未设置。请在 .env 文件或您的系统环境中定义它。", file=sys.stderr)
-            sys.exit(1)
+            # 返回 None，让调用者决定如何处理
+            return None
 
         if isinstance(data, dict):
             for key, value in data.items():

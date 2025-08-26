@@ -90,27 +90,52 @@ class DocumentHandler:
             self.processing_files.discard(str(file_path_obj))
 
 def load_publishers(config: Config) -> Dict[str, 'BasePublisher']:
-    """加载所有配置的发布器"""
+    """加载所有配置的发布器，并对无效配置进行优雅处理。"""
     publishers = {}
     accounts = config.get('accounts', {})
     if not accounts:
-        logger.warning("未找到账户配置")
+        logger.warning("配置文件中未找到任何账户配置。")
         return publishers
 
     for account_name, account_config in accounts.items():
         if not isinstance(account_config, dict):
-            logger.warning(f"账户 {account_name} 的配置不是字典格式，已跳过")
+            logger.warning(f"账户 '{account_name}' 的配置不是有效的字典格式，已跳过。")
             continue
         
-        platform = account_config.get('type', 'wechat').lower()
+        platform = account_config.get('type')
+        if not platform:
+            logger.warning(f"账户 '{account_name}' 未指定 'type'，已跳过。")
+            continue
+
+        # 检查必需的凭据是否缺失
+        required_credentials = {
+            'wechat': ['app_id', 'app_secret'],
+            'juejin': ['username', 'password'],
+            'csdn': ['username', 'password'],
+            'toutiao': ['username', 'password'],
+            'zhihu': ['email', 'password']
+        }
+
+        creds_to_check = required_credentials.get(platform.lower())
+        if creds_to_check:
+            missing_creds = [cred for cred in creds_to_check if not account_config.get(cred)]
+            if missing_creds:
+                logger.warning(
+                    f"跳过账户 '{account_name}' (平台: {platform})，"
+                    f"因为缺少以下必要的环境变量配置: {', '.join(missing_creds)}。"
+                    "请检查您的 .env 文件和 config.yaml 配置。"
+                )
+                continue
+
         try:
-            publisher = get_publisher(platform, account_config, account_name)
+            publisher = get_publisher(platform.lower(), account_config, account_name)
             publishers[account_name] = publisher
-            logger.info(f"已加载发布器: {account_name} ({platform})")
+            logger.info(f"成功加载发布器: {account_name} (平台: {platform})")
         except ValueError as e:
-            logger.warning(f"不支持的发布平台 '{platform}' 或配置无效，账户: {account_name}。错误: {e}")
+            logger.warning(f"无法加载账户 '{account_name}' (平台: {platform})，配置可能无效: {e}")
         except Exception as e:
-            logger.error(f"加载发布器 {account_name} 时发生未知错误: {e}", exc_info=True)
+            logger.error(f"加载发布器 '{account_name}' 时发生未知错误: {e}", exc_info=True)
+
     return publishers
 
 def create_directories(config: Config):
