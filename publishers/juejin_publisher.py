@@ -6,16 +6,17 @@ from typing import Dict, Optional, List, Any
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
-from .base_publisher import BasePublisher
+from .base import BasePublisher
 
 class JuejinPublisher(BasePublisher):
+    platform_name = 'juejin'
     """掘金平台发布器"""
     
     BASE_URL = "https://api.juejin.cn"
     LOGIN_URL = "https://juejin.cn/passport/web/user/login"
     
-    def __init__(self, config: dict, account_name: str):
-        super().__init__(config, account_name)
+    def __init__(self, account_name: str, platform_config: dict, common_config: 'Config'):
+        super().__init__(account_name, platform_config, common_config)
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',

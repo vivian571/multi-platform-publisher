@@ -125,8 +125,12 @@ class Config:
         return self.get('accounts', {})
     
     def get_paths(self) -> Dict[str, str]:
-        """获取路径配置"""
-        return self.get('paths', {})
+        """获取通用路径配置"""
+        return self.get('common', {})
+    
+    def get_config(self) -> Dict[str, Any]:
+        """返回完整的原始配置字典"""
+        return self._config
     
     def get_watch_config(self) -> Dict[str, Any]:
         """获取监控配置"""

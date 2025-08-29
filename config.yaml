@@ -9,45 +9,28 @@ paths:
 
 # 账户配置
 # 每个账户对应一个发布平台
-# 账户名将用于匹配文档目录和日志记录
 accounts:
-  # 微信公众号
- # 技术博客:
- #   type: wechat
-  #  app_id: ${WECHAT_ACCOUNT_技术博客_APP_ID}
-  #  app_secret: ${WECHAT_ACCOUNT_技术博客_APP_SECRET}
-  #  author: "技术团队"                # 默认作者
-
+  # 账户名应与 watch_dir 中的子目录名对应
   AI流习社:
-    type: wechat
+    platform: wechat
     app_id: ${WECHAT_ACCOUNT_AI流习社_APP_ID}
     app_secret: ${WECHAT_ACCOUNT_AI流习社_APP_SECRET}
     author: "AI流习社"
 
   开源智核:
-    type: wechat
+    platform: wechat
     app_id: ${WECHAT_ACCOUNT_开源智核_APP_ID}
     app_secret: ${WECHAT_ACCOUNT_开源智核_APP_SECRET}
     author: "开源智核"
 
   码趣逻辑站:
-    type: wechat
+    platform: wechat
     app_id: ${WECHAT_ACCOUNT_码趣逻辑站_APP_ID}
     app_secret: ${WECHAT_ACCOUNT_码趣逻辑站_APP_SECRET}
     author: "码趣逻辑站"
-    
-  # 掘金
-  # 掘金专栏:
-  #   type: juejin
-  #   username: ${JUEJIN_USERNAME}     # 掘金登录账号
-  #   password: ${JUEJIN_PASSWORD}     # 掘金登录密码
-  #   author: "技术博主"
-  #   categories: ["后端", "Python"]   # 文章分类
-  #   tags: ["技术", "编程"]           # 文章标签
-    
-  # CSDN
+
   CSDN博客:
-    type: csdn
+    platform: csdn
     username: ${CSDN_USERNAME}       # CSDN登录账号
     password: ${CSDN_PASSWORD}       # CSDN登录密码
     author: "技术达人"
@@ -56,14 +39,14 @@ accounts:
     
   # 头条号
   技术头条:
-    type: toutiao
+    platform: toutiao
     username: ${TOUTIAO_USERNAME}
     password: ${TOUTIAO_PASSWORD}
     author: "技术小编"
     
   # 知乎专栏
   技术专栏:
-    type: zhihu
+    platform: zhihu
     email: ${ZHIHU_EMAIL}
     password: ${ZHIHU_PASSWORD}
     author: "技术作者"
@@ -77,6 +60,7 @@ watch:
 publish:
   default_author: "自动发布"  # 默认作者，如果文章中没有指定作者
   show_cover: true          # 是否显示封面图
+  move_on_success: "all"  # 何时移动文件: "all" (所有平台成功) 或 "any" (任意一个平台成功)
   
 # 日志配置
 logging:

@@ -11,21 +11,24 @@ from premailer import Premailer
 import urllib.parse
 from typing import Optional, List, Tuple
 
-from .base_publisher import BasePublisher
+from .base import BasePublisher
 
 class WeChatPublisher(BasePublisher):
     """处理与微信公众号API交互、文档处理和发布的类。"""
 
-    def __init__(self, config: dict, account_name: str):
-        super().__init__(config, account_name)
-        self.app_id = self.config.get('app_id')
-        self.app_secret = self.config.get('app_secret')
-        self.default_author = self.config.get('author', '')
-        self.access_token = None
-        self.token_expires_at = 0
+    platform_name = 'wechat'
+
+    def __init__(self, account_name: str, platform_config: dict, common_config: 'Config'):
+        super().__init__(account_name, platform_config, common_config)
+        self.app_id = self.platform_config.get('app_id')
+        self.app_secret = self.platform_config.get('app_secret')
+        if not self.app_id or not self.app_secret:
+            raise ValueError(f"微信公众号 '{account_name}' 的配置缺少 'app_id' 或 'app_secret'")
+        self.default_author = self.platform_config.get('author', '')
+        self.access_token: Optional[str] = None
+        self.token_expires_at: int = 0
         self.session = requests.Session()
         self.markdown_converter = Markdown(extensions=['meta', 'extra', 'sane_lists', 'tables', 'fenced_code'])
-        self.current_processing_file = None
 
     def _get_access_token(self) -> Optional[str]:
         """获取或刷新微信公众号的access_token。"""
@@ -106,44 +109,51 @@ class WeChatPublisher(BasePublisher):
 
     def publish(self, content_path: str, **kwargs) -> bool:
         """处理和发布单个Markdown文档的完整流程。"""
-        self.current_processing_file = content_path
+        self.log_info(f"开始处理文件: {os.path.basename(content_path)}")
+
         try:
-            self.log_info(f"开始处理文档: {os.path.basename(content_path)}")
-            with open(content_path, 'r', encoding='utf-8') as f:
-                md_content = f.read()
+            # 1. 读取和解析Markdown
+            html_content, metadata = self.process_markdown(content_path)
+            title = metadata.get('title', os.path.basename(content_path).split('.')[0])
+            author = metadata.get('author', self.default_author)
+            digest = metadata.get('digest', '')
 
-            self.markdown_converter.reset()
-            html_body = self.markdown_converter.convert(md_content)
-            metadata = self.markdown_converter.Meta
+            # 2. 处理HTML中的图片
+            base_dir = os.path.dirname(content_path)
+            html_content, local_images = self._process_html_images(html_content, base_dir)
 
-            title = metadata.get('title', [''])[0] or os.path.splitext(os.path.basename(content_path))[0]
-            author = metadata.get('author', [self.default_author])[0]
-            digest = metadata.get('digest', [''])[0]
-
-            html_body, local_images = self._process_html_images(html_body, os.path.dirname(content_path))
-
-            cover_image_path = metadata.get('cover', [None])[0]
-            if cover_image_path:
-                cover_image_path = os.path.join(os.path.dirname(content_path), cover_image_path)
-            elif local_images:
-                cover_image_path = local_images[0]
-            
+            # 3. 上传封面图
+            cover_image_path = metadata.get('cover')
             thumb_media_id = None
-            if cover_image_path and os.path.exists(cover_image_path):
-                thumb_media_id = self._upload_thumb_image(cover_image_path)
+            if cover_image_path:
+                full_cover_path = os.path.join(base_dir, cover_image_path)
+                if os.path.exists(full_cover_path):
+                    thumb_media_id = self._upload_thumb_image(full_cover_path)
+                else:
+                    self.log_warning(f"指定的封面图片不存在: {full_cover_path}")
             
+            if not thumb_media_id and local_images:
+                thumb_media_id = self._upload_thumb_image(local_images[0])
+
             if not thumb_media_id:
-                self.log_warning(f"未找到或无法上传封面图，文章 '{title}' 将不会创建草稿。")
+                self.log_warning("无法确定封面图，将不设置封面。")
+                # 这里可以根据配置选择是否继续
+                # return False
+
+            # 4. 样式化和创建草稿
+            final_html = self._wrap_html_with_style(html_content, title)
+            draft_id = self._create_draft(title, final_html, thumb_media_id, author, digest)
+
+            if draft_id:
+                self.log_success(f"成功创建草稿: '{title}' (ID: {draft_id})")
+                return True
+            else:
+                self.log_error(f"创建草稿失败: '{title}'")
                 return False
 
-            final_html = self._wrap_html_with_style(html_body, title)
-            return self._create_draft(title, final_html, thumb_media_id, author, digest)
-
         except Exception as e:
-            self.log_error(f"处理文档 '{os.path.basename(content_path)}' 时发生严重错误: {e}", exc_info=True)
+            self.log_error(f"处理文件时发生未知错误: {e}", exc_info=True)
             return False
-        finally:
-            self.current_processing_file = None
 
     def _process_html_images(self, html: str, base_dir: str) -> Tuple[str, List[str]]:
         """处理HTML中的图片，上传本地图片并替换链接，返回处理后的HTML和本地图片列表。"""

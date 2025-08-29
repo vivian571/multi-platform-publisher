@@ -8,25 +8,26 @@ import requests
 from typing import Dict, Optional, List, Any, Tuple
 from urllib.parse import urljoin, quote
 
-from .base_publisher import BasePublisher
+from .base import BasePublisher
 
 class CSDNPublisher(BasePublisher):
+    platform_name = 'csdn'
     """CSDN平台发布器"""
     
     BASE_URL = "https://mp.csdn.net"
     LOGIN_URL = "https://passport.csdn.net/v1/register/pc/login/doLogin"
     UPLOAD_IMAGE_URL = "https://mp-action.csdn.net/interact/wenhu/picture/upload"
     
-    def __init__(self, config: dict, account_name: str):
-        super().__init__(config, account_name)
+    def __init__(self, account_name: str, platform_config: dict, common_config: 'Config'):
+        super().__init__(account_name, platform_config, common_config)
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Referer': 'https://mp.csdn.net/',
             'Origin': 'https://mp.csdn.net',
         })
-        self.username = None
-        self.password = None
+        self.username = self.platform_config.get('username')
+        self.password = self.platform_config.get('password')
         self._login()
     
     def _get_csrf_token(self) -> Optional[str]:
